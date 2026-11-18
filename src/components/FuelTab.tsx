@@ -23,30 +23,12 @@ export function FuelTab({
 }: FuelTabProps) {
   const [date, setDate] = useState(formatISODateLocal(new Date()));
   const [tripKm, setTripKm] = useState('');
-  const [odoKm, setOdoKm] = useState(String(currentOdo));
+  const [odoKm, setOdoKm] = useState('');
   const [fuelType, setFuelType] = useState('Pertalite');
   const [pricePerLiter, setPricePerLiter] = useState('10000');
   const [totalCost, setTotalCost] = useState('35000');
   const [liters, setLiters] = useState(() => (35000 / 10000).toFixed(2));
   const [isFullTank, setIsFullTank] = useState(true);
-
-  function handleTripChange(val: string) {
-    setTripKm(val);
-    const t = Number(val);
-    if (val !== '' && !Number.isNaN(t) && t >= 0) {
-      setOdoKm(String(Number((currentOdo + t).toFixed(1))));
-    }
-  }
-
-  function handleOdoChange(val: string) {
-    setOdoKm(val);
-    const o = Number(val);
-    if (!Number.isNaN(o) && o > currentOdo) {
-      setTripKm(String(Number((o - currentOdo).toFixed(1))));
-    } else {
-      setTripKm('');
-    }
-  }
 
   function handleSelectPreset(name: string, defaultPrice: number) {
     setFuelType(name);
@@ -86,9 +68,9 @@ export function FuelTab({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const odoVal = Math.max(0, Number(odoKm) || 0);
-    const tripVal = Number(tripKm);
-    const priceVal = Math.max(1, Number(pricePerLiter) || 12100);
+    const odoVal = odoKm.trim() !== '' ? Math.max(0, Number(odoKm) || 0) : 0;
+    const tripVal = tripKm.trim() !== '' ? Number(tripKm) : NaN;
+    const priceVal = Math.max(1, Number(pricePerLiter) || 10000);
     const litersVal = Math.max(0.1, Number(liters) || 0);
     const costVal = Math.max(0, Number(totalCost) || Math.round(litersVal * priceVal));
 
@@ -103,12 +85,13 @@ export function FuelTab({
       isFullTank,
     });
     setTripKm('');
-    setOdoKm(String(Number(odoVal.toFixed(1))));
+    setOdoKm('');
   }
 
   const sortedDesc = [...fuelLogs].sort((a, b) => {
-    if (b.odoKm !== a.odoKm) return b.odoKm - a.odoKm;
-    return b.date.localeCompare(a.date);
+    const byDate = b.date.localeCompare(a.date);
+    if (byDate !== 0) return byDate;
+    return b.odoKm - a.odoKm;
   });
 
   const estimatedFullRangeKm =
@@ -254,19 +237,21 @@ export function FuelTab({
               step={0.1}
               placeholder="Contoh: 186.8"
               value={tripKm}
-              onChange={(e) => handleTripChange(e.target.value)}
+              onChange={(e) => setTripKm(e.target.value)}
             />
           </div>
           <div className="field">
-            <label>Odometer Saat Isi (km)</label>
+            <label>Odometer Saat Isi (km) — opsional</label>
             <input
               className="input"
               type="number"
               min={0}
               step={0.1}
+              placeholder={
+                currentOdo > 0 ? `Contoh: ${currentOdo}` : 'Contoh: 45992'
+              }
               value={odoKm}
-              onChange={(e) => handleOdoChange(e.target.value)}
-              required
+              onChange={(e) => setOdoKm(e.target.value)}
             />
           </div>
           <div className="field">
@@ -387,7 +372,7 @@ export function FuelTab({
                         {formatDateID(log.date)}
                       </td>
                       <td className="tabular" style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
-                        {formatNumber(log.odoKm, 1)} km
+                        {log.odoKm > 0 ? `${formatNumber(log.odoKm, 1)} km` : '-'}
                       </td>
                       <td>
                         <div style={{ fontWeight: 600 }}>{log.fuelType}</div>

@@ -138,8 +138,9 @@ export function computeServiceStatus(
 
 export function computeFuelStats(fuelLogs: FuelLog[]): FuelSummaryStats {
   const sortedAsc = [...fuelLogs].sort((a, b) => {
-    if (a.odoKm !== b.odoKm) return a.odoKm - b.odoKm;
-    return a.date.localeCompare(b.date);
+    const byDate = a.date.localeCompare(b.date);
+    if (byDate !== 0) return byDate;
+    return a.odoKm - b.odoKm;
   });
 
   const totalLiters = sortedAsc.reduce((sum, l) => sum + l.liters, 0);
@@ -162,7 +163,7 @@ export function computeFuelStats(fuelLogs: FuelLog[]): FuelSummaryStats {
           lastFullTankIdx !== null ? sortedAsc[lastFullTankIdx] : null;
         const deltaKm = hasTripKm
           ? (log.tripKm as number)
-          : prevFull
+          : prevFull && log.odoKm > 0 && prevFull.odoKm > 0
           ? log.odoKm - prevFull.odoKm
           : 0;
         const startIdx = lastFullTankIdx !== null ? lastFullTankIdx + 1 : 0;
@@ -237,7 +238,8 @@ export function computeFuelStats(fuelLogs: FuelLog[]): FuelSummaryStats {
   if (sortedAsc.length >= 2) {
     const first = sortedAsc[0];
     const last = sortedAsc[sortedAsc.length - 1];
-    const spanKm = last.odoKm - first.odoKm;
+    const odoSpanKm =
+      first.odoKm > 0 && last.odoKm > first.odoKm ? last.odoKm - first.odoKm : 0;
     const litersAfterFirst = sortedAsc
       .slice(1)
       .reduce((sum, l) => sum + l.liters, 0);
@@ -245,11 +247,23 @@ export function computeFuelStats(fuelLogs: FuelLog[]): FuelSummaryStats {
       .slice(1)
       .reduce((sum, l) => sum + l.totalCost, 0);
 
+    let fallbackTripKm = 0;
+    let fallbackTripLiters = 0;
+    let fallbackTripCost = 0;
+
     for (let i = 1; i < sortedAsc.length; i++) {
       const prev = sortedAsc[i - 1];
       const curr = sortedAsc[i];
-      const dKm = curr.odoKm - prev.odoKm;
+      const dKm =
+        typeof curr.tripKm === 'number' && curr.tripKm > 0
+          ? curr.tripKm
+          : curr.odoKm > 0 && prev.odoKm > 0
+          ? curr.odoKm - prev.odoKm
+          : 0;
       if (dKm > 0 && curr.liters > 0) {
+        fallbackTripKm += dKm;
+        fallbackTripLiters += curr.liters;
+        fallbackTripCost += curr.totalCost;
         segmentsByLogId[curr.id] = {
           logId: curr.id,
           deltaKm: dKm,
@@ -260,13 +274,25 @@ export function computeFuelStats(fuelLogs: FuelLog[]): FuelSummaryStats {
       }
     }
 
-    if (spanKm > 0 && litersAfterFirst > 0) {
+    if (odoSpanKm > 0 && litersAfterFirst > 0) {
       return {
-        avgKmPerLiter: spanKm / litersAfterFirst,
-        avgCostPerKm: costAfterFirst / spanKm,
+        avgKmPerLiter: odoSpanKm / litersAfterFirst,
+        avgCostPerKm: costAfterFirst / odoSpanKm,
         totalLiters,
         totalFuelCost,
-        trackedDistanceKm: spanKm,
+        trackedDistanceKm: odoSpanKm,
+        isEstimated: true,
+        segmentsByLogId,
+      };
+    }
+
+    if (fallbackTripKm > 0 && fallbackTripLiters > 0) {
+      return {
+        avgKmPerLiter: fallbackTripKm / fallbackTripLiters,
+        avgCostPerKm: fallbackTripCost / fallbackTripKm,
+        totalLiters,
+        totalFuelCost,
+        trackedDistanceKm: fallbackTripKm,
         isEstimated: true,
         segmentsByLogId,
       };

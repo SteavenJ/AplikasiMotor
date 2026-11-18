@@ -223,10 +223,6 @@ export default function App() {
       };
       return {
         ...prev,
-        profile: {
-          ...prev.profile,
-          currentOdo: Math.max(prev.profile.currentOdo, payload.odoKm),
-        },
         serviceSchedules: updatedSchedules,
         serviceHistory: [newLog, ...prev.serviceHistory].sort((a, b) =>
           b.date.localeCompare(a.date)
@@ -266,10 +262,6 @@ export default function App() {
   function handleAddFuelLog(log: Omit<FuelLog, 'id'>) {
     setData((prev) => ({
       ...prev,
-      profile: {
-        ...prev.profile,
-        currentOdo: Math.max(prev.profile.currentOdo, log.odoKm),
-      },
       fuelLogs: [{ ...log, id: generateId('fuel') }, ...prev.fuelLogs],
     }));
     notify('Catatan pengisian BBM disimpan');
@@ -286,10 +278,6 @@ export default function App() {
   function handleAddTireLog(log: Omit<TireLog, 'id'>) {
     setData((prev) => ({
       ...prev,
-      profile: {
-        ...prev.profile,
-        currentOdo: Math.max(prev.profile.currentOdo, log.odoKm),
-      },
       tireLogs: [{ ...log, id: generateId('tire') }, ...prev.tireLogs],
     }));
     notify('Pengecekan tekanan ban tersimpan');
